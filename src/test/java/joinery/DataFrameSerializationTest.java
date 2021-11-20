@@ -25,11 +25,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 
-import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.IOException;
+import java.io.*;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -125,7 +121,99 @@ public class DataFrameSerializationTest {
                 );
         }
     }
-    
+
+    @Test
+    public void testWriteCSVRowNamedIndex() throws IOException {
+        // Read in the existing CSV file with no indexes
+        DataFrame<Object> inputDF = new DataFrame<Object>();
+        inputDF.append("row1", new Object[] { "a", "alpha", 1L});
+        inputDF.append("row2", new Object[] { "a", "bravo", 2L});
+        inputDF.append("row3", new Object[] { "b", "charlie", 3L});
+        inputDF.append("row4", new Object[] { "b", "delta", 4L});
+        inputDF.append("row5", new Object[] { "c", "echo", 5L});
+        inputDF.append("row6", new Object[] { "c", "foxtrot", 6L});
+
+        // Write the dataframe out with indexes
+        final File tmp = File.createTempFile(getClass().getName(), ".csv");
+        tmp.deleteOnExit();
+        inputDF.writeCsv(new FileOutputStream(tmp), true);
+
+        // Read in the CSV with indexes
+        DataFrame<Object> actualDF = DataFrame.readCsv(new FileInputStream(tmp));
+
+        // Expected with first column as written indexes
+        final Object[][] expected = new Object[][] {
+                new Object[] { "row1", "row2", "row3", "row4", "row5", "row6" },
+                new Object[] { "a", "a", "b", "b", "c", "c" },
+                new Object[] { "alpha", "bravo", "charlie", "delta", "echo", "foxtrot" },
+                new Object[] { 1L, 2L, 3L, 4L, 5L, 6L }
+        };
+
+        for (int i = 0; i < expected.length; i++) {
+            assertArrayEquals(
+                    expected[i],
+                    actualDF.col(i).toArray()
+            );
+        }
+    }
+
+    @Test
+    public void testWriteCSVRowIndex() throws IOException {
+        // Read in the existing CSV file with no indexes
+        DataFrame<Object> existingDF = DataFrame.readCsv(ClassLoader.getSystemResourceAsStream("serialization.csv"));
+
+        // Write the dataframe out with indexes
+        final File tmp = File.createTempFile(getClass().getName(), ".csv");
+        tmp.deleteOnExit();
+        existingDF.writeCsv(new FileOutputStream(tmp), true);
+
+        // Read in the CSV with indexes
+        DataFrame<Object> actualDF = DataFrame.readCsv(new FileInputStream(tmp));
+
+        // Expected with first column as written indexes
+        final Object[][] expected = new Object[][] {
+                new Object[] { 0L, 1L, 2L, 3L, 4L, 5L },
+                new Object[] { "a", "a", "b", "b", "c", "c" },
+                new Object[] { "alpha", "bravo", "charlie", "delta", "echo", "foxtrot" },
+                new Object[] { 1L, 2L, 3L, 4L, 5L, 6L }
+        };
+
+        for (int i = 0; i < expected.length; i++) {
+            assertArrayEquals(
+                    expected[i],
+                    actualDF.col(i).toArray()
+            );
+        }
+    }
+
+    @Test
+    public void testWriteCSVNoRowIndex() throws IOException {
+        // Read in the existing CSV file with no indexes
+        DataFrame<Object> existingDF = DataFrame.readCsv(ClassLoader.getSystemResourceAsStream("serialization.csv"));
+
+        // Write the dataframe out with indexes
+        final File tmp = File.createTempFile(getClass().getName(), ".csv");
+        tmp.deleteOnExit();
+        existingDF.writeCsv(new FileOutputStream(tmp), false);
+
+        // Read in the CSV with indexes
+        DataFrame<Object> actualDF = DataFrame.readCsv(new FileInputStream(tmp));
+
+        // Expected with first column as written indexes
+        final Object[][] expected = new Object[][] {
+                new Object[] { "a", "a", "b", "b", "c", "c" },
+                new Object[] { "alpha", "bravo", "charlie", "delta", "echo", "foxtrot" },
+                new Object[] { 1L, 2L, 3L, 4L, 5L, 6L }
+        };
+
+        for (int i = 0; i < expected.length; i++) {
+            assertArrayEquals(
+                    expected[i],
+                    actualDF.col(i).toArray()
+            );
+        }
+    }
+
     @Test
     public void testReadCsvTabInputStream()
     throws IOException {

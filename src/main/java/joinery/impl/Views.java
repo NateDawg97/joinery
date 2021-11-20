@@ -18,13 +18,7 @@
 
 package joinery.impl;
 
-import java.util.AbstractList;
-import java.util.AbstractMap;
-import java.util.AbstractSet;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 import joinery.DataFrame;
 import joinery.DataFrame.Function;
@@ -35,20 +29,37 @@ public class Views {
     extends AbstractList<List<V>> {
         private final DataFrame<V> df;
         private final boolean transpose;
+        private final boolean includeIndexWithColIter;
 
         public ListView(final DataFrame<V> df, final boolean transpose) {
             this.df = df;
             this.transpose = transpose;
+            this.includeIndexWithColIter = false;
+        }
+
+        public ListView(final DataFrame<V> df, final boolean transpose, final boolean includeIndexWithColIter) {
+            this.df = df;
+            this.transpose = transpose;
+            this.includeIndexWithColIter = includeIndexWithColIter;
         }
 
         @Override
         public List<V> get(final int index) {
-            return new SeriesListView<>(df, index, !transpose);
+            return new SeriesListView<>(df, index, !transpose, includeIndexWithColIter);
         }
 
         @Override
         public int size() {
-            return transpose ? df.length() : df.size();
+            int size;
+
+            if (transpose) {
+                size = df.length();
+            }
+            else {
+                size = includeIndexWithColIter ? df.size() + 1 : df.size();
+            }
+
+            return size;
         }
     }
 
@@ -57,21 +68,61 @@ public class Views {
         private final DataFrame<V> df;
         private final int index;
         private final boolean transpose;
+        private final boolean includeIndexWithColIter;
+        private final ArrayList<Object> indexNames;
 
         public SeriesListView(final DataFrame<V> df, final int index, final boolean transpose) {
             this.df = df;
             this.index = index;
             this.transpose = transpose;
+            this.includeIndexWithColIter = false;
+            this.indexNames = new ArrayList<>(df.index());
+        }
+
+        public SeriesListView(final DataFrame<V> df, final int index, final boolean transpose, final boolean includeIndexWithColIter) {
+            this.df = df;
+            this.index = index;
+            this.transpose = transpose;
+            this.includeIndexWithColIter = includeIndexWithColIter;
+            this.indexNames = new ArrayList<>(df.index());
         }
 
         @Override
         public V get(final int index) {
-            return transpose ? df.get(index, this.index) : df.get(this.index, index);
+            V returnObject;
+
+            if (transpose) {
+                returnObject = df.get(index, this.index);
+            }
+            else {
+                if (includeIndexWithColIter) {
+                    if (index == 0) {
+                        String str = "text index name 01";
+                        returnObject = (index < indexNames.size()) ? (V) indexNames.get(this.index) : (V) Integer.valueOf(index);
+                    } else {
+                        returnObject = df.get(this.index, index - 1);
+                    }
+                }
+                else {
+                    returnObject = df.get(this.index, index);
+                }
+            }
+
+            return returnObject;
         }
 
         @Override
         public int size() {
-            return transpose ? df.length() : df.size();
+            int size;
+
+            if (transpose) {
+                size = df.length();
+            }
+            else {
+                size = includeIndexWithColIter ? df.size() + 1 : df.size();
+            }
+
+            return size;
         }
     }
 

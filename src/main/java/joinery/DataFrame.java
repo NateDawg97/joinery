@@ -119,6 +119,7 @@ implements Iterable<List<V>> {
     private final Index columns;
     private final BlockManager<V> data;
     private final Grouping groups;
+    private boolean includeIndexWithColIter = false;
 
     /**
      * Construct an empty data frame.
@@ -1896,11 +1897,15 @@ implements Iterable<List<V>> {
     }
 
     public ListIterator<List<V>> iterrows() {
-        return new Views.ListView<>(this, true).listIterator();
+        return new Views.ListView<>(this, true, this.includeIndexWithColIter).listIterator();
     }
 
     public ListIterator<List<V>> itercols() {
-        return new Views.ListView<>(this, false).listIterator();
+        return new Views.ListView<>(this, false, this.includeIndexWithColIter).listIterator();
+    }
+
+    public ListIterator<List<V>> itercols(boolean includeIndexWithColIter) {
+        return new Views.ListView<>(this, false, includeIndexWithColIter).listIterator();
     }
 
     public ListIterator<Map<Object, V>> itermap() {
@@ -1910,6 +1915,15 @@ implements Iterable<List<V>> {
     public ListIterator<V> itervalues() {
         return new Views.FlatView<>(this).listIterator();
     }
+
+    public boolean includeIndexWithColIter() {
+        return includeIndexWithColIter;
+    }
+
+    public void includeIndexWithColIter(boolean includeIndexWithColIter) {
+        this.includeIndexWithColIter = includeIndexWithColIter;
+    }
+
 
     /**
      * Cast this data frame to the specified type.
@@ -2168,6 +2182,20 @@ implements Iterable<List<V>> {
     /**
      * Write the data from this data frame to
      * the specified file as comma separated values.
+     * Include the Row Index in the first CSV column.
+     *
+     * @param file the file to write
+     * @param writeRowIndex boolean whether to write the row index or not
+     * @throws IOException if an error occurs writing the file
+     */
+    public final void writeCsv(final String file, final boolean writeRowIndex)
+            throws IOException {
+        Serialization.writeCsv(this, new FileOutputStream(file), writeRowIndex);
+    }
+
+    /**
+     * Write the data from this data frame to
+     * the specified file as comma separated values.
      *
      * @param file the file to write
      * @throws IOException if an error occurs writing the file
@@ -2175,6 +2203,20 @@ implements Iterable<List<V>> {
     public final void writeCsv(final String file)
     throws IOException {
         Serialization.writeCsv(this, new FileOutputStream(file));
+    }
+
+    /**
+     * Write the data from this data frame to
+     * the provided output stream as comma separated values.
+     * Include the Row Index in the first CSV column.
+     *
+     * @param output
+     * @param writeRowIndex boolean whether to write the row index or not
+     * @throws IOException
+     */
+    public final void writeCsv(final OutputStream output, final boolean writeRowIndex)
+            throws IOException {
+        Serialization.writeCsv(this, output, writeRowIndex);
     }
 
     /**
@@ -2369,6 +2411,7 @@ implements Iterable<List<V>> {
      * <p>Implementors define {@link #apply(Object)} to
      * return {@code true} for rows that should be included
      * in the filtered data frame.</p>
+     *
      *
      * @param <I> the type of the input values
      * @see DataFrame#select(Predicate)

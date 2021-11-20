@@ -34,14 +34,7 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Calendar;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import org.apache.poi.hssf.usermodel.HSSFDataFormat;
 import org.apache.poi.hssf.usermodel.HSSFWorkbook;
@@ -291,29 +284,57 @@ public class Serialization {
     }
 
     public static <V> void writeCsv(final DataFrame<V> df, final String output)
+            throws IOException {
+        writeCsv(df, new FileOutputStream(output), false);
+    }
+
+    public static <V> void writeCsv(final DataFrame<V> df, final String output, final boolean writeRowIndex)
     throws IOException {
-        writeCsv(df, new FileOutputStream(output));
+        writeCsv(df, new FileOutputStream(output), writeRowIndex);
     }
 
     public static <V> void writeCsv(final DataFrame<V> df, final OutputStream output)
+            throws IOException {
+        writeCsv(df, output, false);
+    }
+
+    public static <V> void writeCsv(final DataFrame<V> df, final OutputStream output, final boolean writeRowIndex)
     throws IOException {
         try (CsvListWriter writer = new CsvListWriter(new OutputStreamWriter(output), CsvPreference.STANDARD_PREFERENCE)) {
-            final String[] header = new String[df.size()];
+            final String[] header = writeRowIndex ? new String[df.size() + 1] : new String[df.size()];
             final Iterator<Object> it = df.columns().iterator();
-            for (int c = 0; c < df.size(); c++) {
-                header[c] = String.valueOf(it.hasNext() ? it.next() : c);
+            int writingIndex = 0;
+
+            // if writting the index name, then we need a header for it
+            if (writeRowIndex) {
+                header[0] = "ROW INDEX";
+                writingIndex = 1;
+                df.includeIndexWithColIter(writeRowIndex);
             }
+
+            for (int c = 0; c < df.size(); c++) {
+                header[c + writingIndex] = String.valueOf(it.hasNext() ? it.next() : c);
+            }
+
             writer.writeHeader(header);
-            final CellProcessor[] procs = new CellProcessor[df.size()];
+
+            final CellProcessor[] procs = writeRowIndex ? new CellProcessor[df.size() + 1] : new CellProcessor[df.size()];
+
+            // if writting the index name, then have cell processor for it
+            if (writeRowIndex) {
+                procs[0] = new ConvertNullTo("");
+            }
+
             final List<Class<?>> types = df.types();
             for (int c = 0; c < df.size(); c++) {
                 final Class<?> cls = types.get(c);
                 if (Date.class.isAssignableFrom(cls)) {
-                    procs[c] = new ConvertNullTo("", new FmtDate("yyyy-MM-dd'T'HH:mm:ssXXX"));
+                    procs[c + writingIndex] = new ConvertNullTo("", new FmtDate("yyyy-MM-dd'T'HH:mm:ssXXX"));
                 } else {
-                    procs[c] = new ConvertNullTo("");
+                    procs[c + writingIndex] = new ConvertNullTo("");
                 }
             }
+
             for (final List<V> row : df) {
                 writer.write(row, procs);
             }
